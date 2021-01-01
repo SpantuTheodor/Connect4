@@ -25,6 +25,7 @@
 #define MAX_COL 7
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+int number_of_players;
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
@@ -42,6 +43,7 @@ void prepare_board_for_new_game();
 void print_board(int board[][MAX_COL]);
 int make_movement(int col, int id_player);
 bool is_winning_state(int id_player);
+bool is_valid_movement(int col);
 
 int main ()
 {
@@ -115,11 +117,13 @@ int main ()
 	td=(struct thData*)malloc(sizeof(struct thData));	
 	td->idThread=i++;
 	td->cl=client;
+  number_of_players ++;
 
 	pthread_create(&th[i], NULL, &treat, td);	      
 				
 	}//while    
 };				
+
 static void *treat(void * arg)
 {		
 		struct thData tdL; 
@@ -141,75 +145,75 @@ void raspunde(void *arg)
 	struct thData tdL; 
 	tdL= *((struct thData*)arg);
 
-
-	// if (read (tdL.cl, &nr,sizeof(int)) <= 0)
-	// 		{
-	// 		  printf("[Thread %d]\n",tdL.idThread);
-	// 		  perror ("Eroare la read() de la client.\n");
-			
-	// 		}
-	
-	// printf ("[Thread %d]Mesajul a fost receptionat...%d\n",tdL.idThread, nr);
-		      
-	// 	      /*pregatim mesajul de raspuns */
-	// 	      nr++;      
-	// printf("[Thread %d]Trimitem mesajul inapoi...%d\n",tdL.idThread, nr);
-		      
-		      
-	// 	      /* returnam mesajul clientului */
-	//  if (write (tdL.cl, &nr, sizeof(int)) <= 0)
-	// 	{
-	// 	 printf("[Thread %d] ",tdL.idThread);
-	// 	 perror ("[Thread]Eroare la write() catre client.\n");
-	// 	}
-	// else
-	// 	printf ("[Thread %d]Mesajul a fost trasmis cu succes.\n",tdL.idThread);	
-
   char buf[10];
   int row;
   int col;
   int id_player = tdL.idThread + 1;
   bool winning_condition = false;
-  prepare_board_for_new_game();
+  bool valid_string_condition;
+
   //bool status = pthread_mutex_init(&lock, NULL);
   int turn = id_player;
-  while(!winning_condition){
+  printf("%d", tdL.cl);
+  while(1){
+      
+    prepare_board_for_new_game();
+    winning_condition = false;
 
-    
-    system("clear");
-    print_board(board);
-    sleep(1);
+    while(number_of_players != 2);
+    while(!winning_condition){
+        
+      system("clear");
+      print_board(board);
+      sleep(1);
 
-    pthread_mutex_lock(&lock);
+      pthread_mutex_lock(&lock);
 
-    if (write (tdL.cl,&turn,sizeof(int)) <= 0)
+      if (write (tdL.cl,&board,sizeof(board)) <= 0)
+        {
+          perror ("[client]Eroare la write() spre client.\n");
+        }
+
+    do{
+        
+      if (read (tdL.cl, &col,sizeof(int)) <= 0)
+      {
+        printf("[Thread %d]\n",tdL.idThread);
+        perror ("Eroare la read() de la client.\n");	
+      }
+        
+      valid_string_condition = is_valid_movement(col);
+
+      if (write (tdL.cl,&valid_string_condition,sizeof(bool)) <= 0)
       {
         perror ("[client]Eroare la write() spre client.\n");
       }
 
-	 if (read (tdL.cl, &col,sizeof(int)) <= 0)
-	 		{
-	 		  printf("[Thread %d]\n",tdL.idThread);
-	 		  perror ("Eroare la read() de la client.\n");	
-	 		}
-
+    }while(!valid_string_condition);
 
     if(row = make_movement(col,id_player)){
-      fflush(stdout);
+        
+      if (write (tdL.cl,&board,sizeof(board)) <= 0)
+      {
+        perror ("[client]Eroare la write() spre client.\n");
+      }
+        
       if(is_winning_state(id_player) == true){
         winning_condition = true;
         system("clear");
         printf("CASTIG");
         fflush(stdout);
+        sleep(5);
       }
     }
     else{
       printf("Esti vagabont \n");
     }
-    
+        
     pthread_mutex_unlock(&lock);
-  }
 
+    }
+  }
 }
 
 void prepare_board_for_new_game(){
@@ -231,6 +235,20 @@ void print_board(int board[][MAX_COL]){
     printf("\n");
     fflush(stdout);
   }
+}
+
+bool is_valid_movement(int col){
+    /* input invalid */
+  if(( col >= MAX_COL ) || ( col < 0 )){
+    return false;
+  }
+
+  /* cazul in care coloana este plina */
+  if( board[0][col] != 0 ){
+    return false;
+  }
+
+  return true;
 }
 
 int make_movement(int col, int id_player){
@@ -278,6 +296,7 @@ bool is_winning_state(int id_player){
       }
     }
   }
+
   return false;
 
 }

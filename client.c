@@ -13,6 +13,9 @@
 #include <netdb.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
+#include <signal.h>
+#include <poll.h>
 
 #define MAX_ROW 6
 #define MAX_COL 7
@@ -25,6 +28,7 @@ int port;
 int board[MAX_ROW][MAX_COL];
 
 bool is_valid_movement(int col);
+void print_board(int board[][MAX_COL]);
 
 int main (int argc, char *argv[])
 {
@@ -87,6 +91,9 @@ int main (int argc, char *argv[])
   // printf ("[client]Mesajul primit este: %d\n", nr);
 
   int turn;
+  bool valid_string_condition;
+  time_t finish;
+  struct pollfd input_timer = { STDIN_FILENO, POLLIN|POLLPRI};
   while(1){
   
     /* citirea mesajului */
@@ -96,26 +103,56 @@ int main (int argc, char *argv[])
     // nr=atoi(buf);
  
     /* apel ce blocheaza executia pana in momentul in care incepe tura jucatorului */
-    if (read (sd, &turn, sizeof(int)) <= 0)
+    if (read (sd, &board, sizeof(board)) <= 0)
 	 		{
 	 		  perror ("[client]Eroare la read() de la server.\n");	
 	 		}
 
+    system("clear");
+    print_board(board);
 
     /* trimiterea mesajului ce contine mutarea la server */
-    printf("Introduceti numarul coloanei pe care doriti sa puneti piesa: \n");
-    fflush(stdout);
-    
     do{
-      scanf("%d",&col);
-    }while(!is_valid_movement(col));
 
-    if (write (sd, &col, sizeof(int)) <= 0)
+      system("clear");
+      print_board(board);
+      printf("Introduceti numarul coloanei pe care doriti sa puneti piesa: \n");
+      fflush(stdout);
+
+      /* rezolva bugul ce apare cand un user incearca sa faca mai multe mutari pe tura lui */
+      if(poll(&input_timer,1,8000)) {
+        //  finish = time(NULL);
+        //  while(time(NULL) < finish + 1){    
+        //     scanf("%d",&col);
+        //   }
+          scanf("%d",&col);
+       } else {
+        srand(time(NULL));
+         col = rand() % MAX_COL;
+       }
+
+      if (write (sd, &col, sizeof(int)) <= 0)
       {
         perror ("[client]Eroare la write() spre server.\n");
         return errno;
       }
-    }
+
+      if (read (sd, &valid_string_condition, sizeof(bool)) <= 0)
+	 		{
+	 		  perror ("[client]Eroare la read() de la server.\n");	
+	 		}
+ 
+    }while(!valid_string_condition);
+
+    if (read (sd, &board, sizeof(board)) <= 0)
+	 	{
+	 		perror ("[client]Eroare la read() de la server.\n");	
+	 	}
+
+    system("clear");
+    print_board(board);
+  
+  }
 
 
   /* inchidem conexiunea, am terminat */
@@ -135,4 +172,17 @@ bool is_valid_movement(int col){
   }
 
   return true;
+}
+
+void print_board(int board[][MAX_COL]){
+  for(int i = 0 ; i < MAX_ROW ; i++)
+  {
+    for(int j = 0 ; j < MAX_COL ; j++)
+      {
+        printf("%d ",board[i][j]);
+        fflush(stdout);
+      }
+    printf("\n");
+    fflush(stdout);
+  }
 }
