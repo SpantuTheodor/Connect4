@@ -23,9 +23,17 @@
 #define PORT 2908
 #define MAX_ROW 6
 #define MAX_COL 7
+#define ANSI_COLOR_RESET "\x1b[0m"
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 int number_of_players;
+int player_colors[2];
+int player_ids[2];
+int ind;
+bool winner_message_condition;
+char winner_message[10];
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
@@ -42,7 +50,7 @@ void raspunde(void *);
 void prepare_board_for_new_game();
 void print_board(int board[][MAX_COL]);
 int make_movement(int col, int id_player);
-bool is_winning_state(int id_player);
+bool is_winning_state();
 bool is_valid_movement(int col);
 
 int main ()
@@ -151,67 +159,118 @@ void raspunde(void *arg)
   int id_player = tdL.idThread + 1;
   bool winning_condition = false;
   bool valid_string_condition;
+  player_colors[ind] = id_player;
+  player_ids[ind] = id_player;
+  ind++;
+  int option = 0;
+  int score = 0;
 
   //bool status = pthread_mutex_init(&lock, NULL);
-  int turn = id_player;
-  printf("%d", tdL.cl);
+
   while(1){
       
     prepare_board_for_new_game();
     winning_condition = false;
+    winner_message_condition = false;
+    strcpy(winner_message, "pierdut");
 
     while(number_of_players != 2);
+
+    sleep(1);
+
+    if (write (tdL.cl,&player_colors,sizeof(player_colors)) <= 0)
+    {
+      perror ("[client]Eroare la write() spre client.\n");
+    }
+
+    if (write (tdL.cl,&board,sizeof(board)) <= 0)
+    {
+      perror ("[client]Eroare la write() spre client.\n");
+    }
+
     while(!winning_condition){
         
-      system("clear");
-      print_board(board);
-      sleep(1);
+        system("clear");
+        printf("%d \n", score);
+        print_board(board);
+        sleep(1);
 
-      pthread_mutex_lock(&lock);
+        pthread_mutex_lock(&lock);
 
-      if (write (tdL.cl,&board,sizeof(board)) <= 0)
+      if(is_winning_state() == true){
+        winning_condition = true;
+        system("clear");
+        printf("Joc terminat");
+        fflush(stdout);
+        pthread_mutex_unlock(&lock);
+      }
+
+      if (write (tdL.cl,&winning_condition,sizeof(bool)) <= 0)
+      {
+        perror ("[client]Eroare la write() spre client.\n");
+      }
+
+      if(winning_condition == true){
+
+        if (write (tdL.cl,&winner_message,sizeof(winner_message)) <= 0)
         {
           perror ("[client]Eroare la write() spre client.\n");
         }
 
-    do{
-        
-      if (read (tdL.cl, &col,sizeof(int)) <= 0)
-      {
-        printf("[Thread %d]\n",tdL.idThread);
-        perror ("Eroare la read() de la client.\n");	
-      }
-        
-      valid_string_condition = is_valid_movement(col);
 
-      if (write (tdL.cl,&valid_string_condition,sizeof(bool)) <= 0)
-      {
-        perror ("[client]Eroare la write() spre client.\n");
-      }
+        if(winner_message_condition == false){  
+          winner_message_condition = true;
+          strcpy(winner_message, "castigat");
+          score ++;
+        }
 
-    }while(!valid_string_condition);
-
-    if(row = make_movement(col,id_player)){
-        
-      if (write (tdL.cl,&board,sizeof(board)) <= 0)
-      {
-        perror ("[client]Eroare la write() spre client.\n");
-      }
-        
-      if(is_winning_state(id_player) == true){
-        winning_condition = true;
-        system("clear");
-        printf("CASTIG");
-        fflush(stdout);
+        number_of_players = 0;
         sleep(5);
-      }
-    }
-    else{
-      printf("Esti vagabont \n");
-    }
-        
-    pthread_mutex_unlock(&lock);
 
+        if (read (tdL.cl, &option, sizeof(int)) <= 0)
+        {
+          printf("[Thread %d]\n",tdL.idThread);
+          perror ("Eroare la read() de la client.\n");	
+        }
+
+        if(option == 1){
+          number_of_players++;
+        }
+
+      }else{
+
+        if (write (tdL.cl,&board,sizeof(board)) <= 0)
+          {
+            perror ("[client]Eroare la write() spre client.\n");
+          }
+
+        do{
+            
+          if (read (tdL.cl, &col,sizeof(int)) <= 0)
+          {
+            printf("[Thread %d]\n",tdL.idThread);
+            perror ("Eroare la read() de la client.\n");	
+          }
+            
+          valid_string_condition = is_valid_movement(col);
+
+          if (write (tdL.cl,&valid_string_condition,sizeof(bool)) <= 0)
+          {
+            perror ("[client]Eroare la write() spre client.\n");
+          }
+
+        }while(!valid_string_condition);
+
+        if(row = make_movement(col,id_player)){
+            
+          if (write (tdL.cl,&board,sizeof(board)) <= 0)
+          {
+            perror ("[client]Eroare la write() spre client.\n");
+          }
+            
+        }
+        pthread_mutex_unlock(&lock);
+      }
     }
   }
 }
@@ -229,8 +288,18 @@ void print_board(int board[][MAX_COL]){
   {
     for(int j = 0 ; j < MAX_COL ; j++)
       {
-        printf("%d ",board[i][j]);
-        fflush(stdout);
+        if(player_colors[0] == board[i][j]){
+          printf(ANSI_COLOR_RED "● " ANSI_COLOR_RESET);
+          fflush(stdout);
+        }
+        else if(player_colors[1] == board[i][j]){
+          printf(ANSI_COLOR_GREEN "● " ANSI_COLOR_RESET);
+          fflush(stdout);
+        }
+        else{
+          printf("● ");
+          fflush(stdout);
+        }
       }
     printf("\n");
     fflush(stdout);
@@ -269,34 +338,34 @@ int make_movement(int col, int id_player){
 
 }
 
-bool is_winning_state(int id_player){
+bool is_winning_state(){
 
   int dx[] = {0, 0, 0, -1, -2, -3, -1, -2, -3, -1, -2, -3};
   int dy[] = {1, 2, 3, 1, 2, 3, 0, 0, 0, -1, -2, -3};
-
-  for(int row = 0; row < MAX_ROW ; row++){
-    for(int col = 0; col < MAX_COL ; col++){
-      if(board[row][col] == id_player){
-        int i=0;
-        bool conditie;
-        while(i<sizeof(dx)){
-          conditie = true;
-          for(int j = i ; j < i+3 ; j++){
-            if (((row + dx[j] < MAX_ROW) && (row + dx[j] >= 0)) && ((col + dy[j] < MAX_COL) && (col + dy[j] >= 0))){
-              if(board[row + dx[j]][col + dy[j]] != id_player)
-                conditie = false;
+  for(int index = 0 ; index < sizeof(player_ids)/sizeof(int) ; index++){
+    for(int row = 0; row < MAX_ROW ; row++){
+      for(int col = 0; col < MAX_COL ; col++){
+        if(board[row][col] == player_ids[index]){
+          int i=0;
+          bool conditie;
+          while(i<sizeof(dx)){
+            conditie = true;
+            for(int j = i ; j < i+3 ; j++){
+              if (((row + dx[j] < MAX_ROW) && (row + dx[j] >= 0)) && ((col + dy[j] < MAX_COL) && (col + dy[j] >= 0))){
+                if(board[row + dx[j]][col + dy[j]] != player_ids[index])
+                  conditie = false;
+              }
+              else conditie = false;
             }
-            else conditie = false;
+            if(conditie == true){
+              return true;
+            }
+            i+=3;
           }
-          if(conditie == true){
-            return true;
-          }
-          i+=3;
         }
       }
     }
   }
-
   return false;
 
 }

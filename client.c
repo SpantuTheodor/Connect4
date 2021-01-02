@@ -19,6 +19,10 @@
 
 #define MAX_ROW 6
 #define MAX_COL 7
+#define ANSI_COLOR_RESET "\x1b[0m"
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
@@ -26,6 +30,7 @@ extern int errno;
 /* portul de conectare la server*/
 int port;
 int board[MAX_ROW][MAX_COL];
+int player_colors[2];
 
 bool is_valid_movement(int col);
 void print_board(int board[][MAX_COL]);
@@ -70,93 +75,131 @@ int main (int argc, char *argv[])
       return errno;
     }
 
-  
-  // printf("[client] Am citit %d\n",nr);
-
-  // /* trimiterea mesajului la server */
-  // if (write (sd,&nr,sizeof(int)) <= 0)
-  //   {
-  //     perror ("[client]Eroare la write() spre server.\n");
-  //     return errno;
-  //   }
-
-  // /* citirea raspunsului dat de server 
-  //    (apel blocant pina cind serverul raspunde) */
-  // if (read (sd, &nr,sizeof(int)) < 0)
-  //   {
-  //     perror ("[client]Eroare la read() de la server.\n");
-  //     return errno;
-  //   }
-  // /* afisam mesajul primit */
-  // printf ("[client]Mesajul primit este: %d\n", nr);
-
   int turn;
   bool valid_string_condition;
+  bool winning_condition = false;
+  char winner_message[10];
   time_t finish;
   struct pollfd input_timer = { STDIN_FILENO, POLLIN|POLLPRI};
+  int option;
   while(1){
-  
-    /* citirea mesajului */
-    // printf ("[client]Introduceti un numar: ");
-    // fflush (stdout);
-    // read (0, buf, sizeof(buf));
-    // nr=atoi(buf);
- 
-    /* apel ce blocheaza executia pana in momentul in care incepe tura jucatorului */
-    if (read (sd, &board, sizeof(board)) <= 0)
-	 		{
-	 		  perror ("[client]Eroare la read() de la server.\n");	
-	 		}
 
-    system("clear");
-    print_board(board);
+    winning_condition = false;
 
-    /* trimiterea mesajului ce contine mutarea la server */
-    do{
 
-      system("clear");
-      print_board(board);
-      printf("Introduceti numarul coloanei pe care doriti sa puneti piesa: \n");
-      fflush(stdout);
-
-      /* rezolva bugul ce apare cand un user incearca sa faca mai multe mutari pe tura lui */
-      if(poll(&input_timer,1,8000)) {
-        //  finish = time(NULL);
-        //  while(time(NULL) < finish + 1){    
-        //     scanf("%d",&col);
-        //   }
-          scanf("%d",&col);
-       } else {
-        srand(time(NULL));
-         col = rand() % MAX_COL;
-       }
-
-      if (write (sd, &col, sizeof(int)) <= 0)
-      {
-        perror ("[client]Eroare la write() spre server.\n");
-        return errno;
-      }
-
-      if (read (sd, &valid_string_condition, sizeof(bool)) <= 0)
-	 		{
-	 		  perror ("[client]Eroare la read() de la server.\n");	
-	 		}
- 
-    }while(!valid_string_condition);
-
-    if (read (sd, &board, sizeof(board)) <= 0)
+    if (read (sd, &player_colors, sizeof(player_colors)) <= 0)
 	 	{
 	 		perror ("[client]Eroare la read() de la server.\n");	
 	 	}
 
+    if (read (sd, &board, sizeof(board)) <= 0)
+    {
+      perror ("[client]Eroare la read() de la server.\n");	
+    }
+
     system("clear");
     print_board(board);
-  
+
+    while(!winning_condition){
+
+      if (read (sd, &winning_condition, sizeof(bool)) <= 0)
+      {
+        perror ("[client]Eroare la read() de la server.\n");	
+      }
+    
+      if(winning_condition == true){
+
+        if (read (sd, &winner_message, sizeof(winner_message)) <= 0)
+        {
+          perror ("[client]Eroare la read() de la server.\n");	
+        }
+        
+        system("clear");
+        printf("Ai ");
+        if(strcmp(winner_message,"castigat") == 0)
+          printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET, winner_message);
+        else 
+          printf(ANSI_COLOR_RED "%s" ANSI_COLOR_RESET, winner_message);
+        printf(".\n\n");
+        printf("Foloseste una din comenzile: \n");
+        printf("1) rematch\n");
+        printf("2) exit\n");
+        fflush(stdout);
+        
+        do{
+          scanf("%d", &option);
+          if(option == 1){
+            if (write (sd, &option, sizeof(int)) <= 0)
+            {
+              perror ("[client]Eroare la write() spre server.\n");
+              return errno;
+            }
+          }
+          else if(option == 2){
+            if (write (sd, &option, sizeof(int)) <= 0)
+            {
+              perror ("[client]Eroare la write() spre server.\n");
+              return errno;
+            }
+            /* inchidem conexiunea, am terminat */
+            close (sd);
+          }
+        }while((option != 1) && (option != 2));
+
+      }else{
+      
+        /* apel ce blocheaza executia pana in momentul in care incepe tura jucatorului */
+        if (read (sd, &board, sizeof(board)) <= 0)
+          {
+            perror ("[client]Eroare la read() de la server.\n");	
+          }
+
+        system("clear");
+        print_board(board);
+
+        /* trimiterea mesajului ce contine mutarea la server */
+        do{
+
+          system("clear");
+          print_board(board);
+          printf("Introduceti numarul coloanei pe care doriti sa puneti piesa: \n");
+          fflush(stdout);
+
+          /* rezolva bugul ce apare cand un user incearca sa faca mai multe mutari pe tura lui */
+          if(poll(&input_timer,1,8000)) {
+            //  finish = time(NULL);
+            //  while(time(NULL) < finish + 1){    
+            //     scanf("%d",&col);
+            //   }
+              scanf("%d",&col);
+          } else {
+            srand(time(NULL));
+            col = rand() % MAX_COL;
+          }
+
+          if (write (sd, &col, sizeof(int)) <= 0)
+          {
+            perror ("[client]Eroare la write() spre server.\n");
+            return errno;
+          }
+
+          if (read (sd, &valid_string_condition, sizeof(bool)) <= 0)
+          {
+            perror ("[client]Eroare la read() de la server.\n");	
+          }
+    
+        }while(!valid_string_condition);
+
+        if (read (sd, &board, sizeof(board)) <= 0)
+        {
+          perror ("[client]Eroare la read() de la server.\n");	
+        }
+
+        system("clear");
+        print_board(board);
+      }
+    }
   }
-
-
-  /* inchidem conexiunea, am terminat */
-  close (sd);
 }
 
 
@@ -179,8 +222,18 @@ void print_board(int board[][MAX_COL]){
   {
     for(int j = 0 ; j < MAX_COL ; j++)
       {
-        printf("%d ",board[i][j]);
-        fflush(stdout);
+        if(player_colors[0] == board[i][j]){
+          printf(ANSI_COLOR_RED "● " ANSI_COLOR_RESET);
+          fflush(stdout);
+        }
+        else if(player_colors[1] == board[i][j]){
+          printf(ANSI_COLOR_GREEN "● " ANSI_COLOR_RESET);
+          fflush(stdout);
+        }
+        else{
+          printf("● ");
+          fflush(stdout);
+        }
       }
     printf("\n");
     fflush(stdout);
