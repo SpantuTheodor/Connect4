@@ -34,6 +34,7 @@ int player_ids[2];
 int ind;
 bool winner_message_condition;
 char winner_message[10];
+int scores[2];
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
@@ -163,7 +164,6 @@ void raspunde(void *arg)
   player_ids[ind] = id_player;
   ind++;
   int option = 0;
-  int score = 0;
 
   //bool status = pthread_mutex_init(&lock, NULL);
 
@@ -189,13 +189,15 @@ void raspunde(void *arg)
     }
 
     while(!winning_condition){
-        
-        system("clear");
-        printf("%d \n", score);
-        print_board(board);
-        sleep(1);
 
+        sleep(1);
+  
         pthread_mutex_lock(&lock);
+
+        system("clear");
+        print_board(board);
+
+        //pthread_mutex_lock(&lock);
 
       if(is_winning_state() == true){
         winning_condition = true;
@@ -217,11 +219,20 @@ void raspunde(void *arg)
           perror ("[client]Eroare la write() spre client.\n");
         }
 
-
         if(winner_message_condition == false){  
           winner_message_condition = true;
           strcpy(winner_message, "castigat");
-          score ++;
+          if(player_ids[0] == id_player){
+            scores[1]++;
+            }
+          else if(player_ids[1] == id_player){
+            scores[0]++;
+            }
+        }
+
+        if (write (tdL.cl,&scores,sizeof(scores)) <= 0)
+        {
+          perror ("[client]Eroare la write() spre client.\n");
         }
 
         number_of_players = 0;

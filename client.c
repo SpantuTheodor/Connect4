@@ -31,6 +31,7 @@ extern int errno;
 int port;
 int board[MAX_ROW][MAX_COL];
 int player_colors[2];
+int scores[2];
 
 bool is_valid_movement(int col);
 void print_board(int board[][MAX_COL]);
@@ -98,6 +99,8 @@ int main (int argc, char *argv[])
     }
 
     system("clear");
+    printf("Score: %d %d \n\n", scores[0], scores[1]);
+    fflush(stdout);
     print_board(board);
 
     while(!winning_condition){
@@ -114,6 +117,11 @@ int main (int argc, char *argv[])
           perror ("[client]Eroare la read() de la server.\n");	
         }
         
+        if (read (sd, &scores, sizeof(scores)) <= 0)
+        {
+          perror ("[client]Eroare la read() de la server.\n");	
+        }
+
         system("clear");
         printf("Ai ");
         if(strcmp(winner_message,"castigat") == 0)
@@ -143,6 +151,7 @@ int main (int argc, char *argv[])
             }
             /* inchidem conexiunea, am terminat */
             close (sd);
+            return 0;
           }
         }while((option != 1) && (option != 2));
 
@@ -155,12 +164,16 @@ int main (int argc, char *argv[])
           }
 
         system("clear");
+        printf("Score: %d %d \n\n", scores[0], scores[1]);
+        fflush(stdout);
         print_board(board);
 
         /* trimiterea mesajului ce contine mutarea la server */
         do{
 
           system("clear");
+          printf("Score: %d %d \n\n", scores[0], scores[1]);
+          fflush(stdout);
           print_board(board);
           printf("Introduceti numarul coloanei pe care doriti sa puneti piesa: \n");
           fflush(stdout);
@@ -196,6 +209,8 @@ int main (int argc, char *argv[])
         }
 
         system("clear");
+        printf("Score: %d %d \n\n", scores[0], scores[1]);
+        fflush(stdout);
         print_board(board);
       }
     }
