@@ -28,7 +28,7 @@
 #define ANSI_COLOR_GREEN "\x1b[32m"
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-int number_of_players;
+int number_of_players = 0;
 int player_colors[2];
 int player_ids[2];
 int ind;
@@ -62,7 +62,7 @@ int main ()
   int sd;		//descriptorul de socket 
   int pid;
   pthread_t th[100];    //Identificatorii thread-urilor care se vor crea
-	int i=0;
+	int thread_index=0;
   
 
   /* crearea unui socket */
@@ -124,11 +124,10 @@ int main ()
 	// int cl; //descriptorul intors de accept
 
 	td=(struct thData*)malloc(sizeof(struct thData));	
-	td->idThread=i++;
+	td->idThread=thread_index++;
 	td->cl=client;
-  number_of_players ++;
 
-	pthread_create(&th[i], NULL, &treat, td);	      
+	pthread_create(&th[thread_index], NULL, &treat, td);	      
 				
 	}//while    
 };				
@@ -160,9 +159,16 @@ void raspunde(void *arg)
   int id_player = tdL.idThread + 1;
   bool winning_condition = false;
   bool valid_string_condition;
-  player_colors[ind] = id_player;
-  player_ids[ind] = id_player;
+  if(player_ids[0] == 0){
+  player_colors[0] = id_player;
+  player_ids[0] = id_player;
+  }
+  else if(player_ids[1] == 0){
+  player_colors[1] = id_player;
+  player_ids[1] = id_player;
+  }
   ind++;
+  number_of_players++;
   int option = 0;
 
   //bool status = pthread_mutex_init(&lock, NULL);
@@ -172,10 +178,15 @@ void raspunde(void *arg)
     prepare_board_for_new_game();
     winning_condition = false;
     winner_message_condition = false;
+
     strcpy(winner_message, "pierdut");
+
+    printf("%d", number_of_players);
+    fflush(stdout);
 
     while(number_of_players != 2);
 
+    fflush(stdout);
     sleep(1);
 
     if (write (tdL.cl,&player_colors,sizeof(player_colors)) <= 0)
@@ -187,7 +198,7 @@ void raspunde(void *arg)
     {
       perror ("[client]Eroare la write() spre client.\n");
     }
-
+    
     while(!winning_condition){
 
         sleep(1);
@@ -219,7 +230,8 @@ void raspunde(void *arg)
           perror ("[client]Eroare la write() spre client.\n");
         }
 
-        if(winner_message_condition == false){  
+        if(winner_message_condition == false){
+          number_of_players = 0;  
           winner_message_condition = true;
           strcpy(winner_message, "castigat");
           if(player_ids[0] == id_player){
@@ -230,14 +242,6 @@ void raspunde(void *arg)
             }
         }
 
-        if (write (tdL.cl,&scores,sizeof(scores)) <= 0)
-        {
-          perror ("[client]Eroare la write() spre client.\n");
-        }
-
-        number_of_players = 0;
-        sleep(5);
-
         if (read (tdL.cl, &option, sizeof(int)) <= 0)
         {
           printf("[Thread %d]\n",tdL.idThread);
@@ -245,10 +249,31 @@ void raspunde(void *arg)
         }
 
         if(option == 1){
-          number_of_players++;
+          number_of_players ++;        
         }
-
+        else if(option == 2){
+          //close (tdL.cl);
+          if(player_ids[0] == id_player){
+            player_ids[0] = 0;
+            player_colors[0] = 0;
+            scores[0] = 0;
+            scores[1] = 0;
+          }
+          else if(player_ids[1] == id_player){
+            player_ids[1] = 0;
+            player_colors[1] = 0;
+            scores[0] = 0;
+            scores[1] = 0;
+          }
+          pthread_exit(NULL);		
+        }
+        option = 0;
       }else{
+
+        if (write (tdL.cl,&scores,sizeof(scores)) <= 0)
+        {
+          perror ("[client]Eroare la write() spre client.\n");
+        }
 
         if (write (tdL.cl,&board,sizeof(board)) <= 0)
           {

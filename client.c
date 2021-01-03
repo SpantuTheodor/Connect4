@@ -86,6 +86,7 @@ int main (int argc, char *argv[])
   while(1){
 
     winning_condition = false;
+    option = 0;
 
 
     if (read (sd, &player_colors, sizeof(player_colors)) <= 0)
@@ -113,11 +114,6 @@ int main (int argc, char *argv[])
       if(winning_condition == true){
 
         if (read (sd, &winner_message, sizeof(winner_message)) <= 0)
-        {
-          perror ("[client]Eroare la read() de la server.\n");	
-        }
-        
-        if (read (sd, &scores, sizeof(scores)) <= 0)
         {
           perror ("[client]Eroare la read() de la server.\n");	
         }
@@ -150,12 +146,17 @@ int main (int argc, char *argv[])
               return errno;
             }
             /* inchidem conexiunea, am terminat */
-            close (sd);
+            //close (sd);
             return 0;
           }
         }while((option != 1) && (option != 2));
 
       }else{
+
+        if (read (sd, &scores, sizeof(scores)) <= 0)
+        {
+          perror ("[client]Eroare la read() de la server.\n");	
+        }
       
         /* apel ce blocheaza executia pana in momentul in care incepe tura jucatorului */
         if (read (sd, &board, sizeof(board)) <= 0)
