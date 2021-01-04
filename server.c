@@ -28,13 +28,15 @@
 #define ANSI_COLOR_GREEN "\x1b[32m"
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+int board[MAX_ROW][MAX_COL];
 int number_of_players = 0;
 int player_colors[2];
 int player_ids[2];
-int ind;
+bool draw_condition;
 bool winner_message_condition;
-char winner_message[10];
+char winner_message[20];
 int scores[2];
+int mutare;
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
@@ -43,8 +45,6 @@ typedef struct thData{
 	int idThread; //id-ul thread-ului tinut in evidenta de acest program
 	int cl; //descriptorul intors de accept
 }thData;
-
-int board[MAX_ROW][MAX_COL];
 
 static void *treat(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii */
 void raspunde(void *);
@@ -159,6 +159,7 @@ void raspunde(void *arg)
   int id_player = tdL.idThread + 1;
   bool winning_condition = false;
   bool valid_string_condition;
+
   if(player_ids[0] == 0){
   player_colors[0] = id_player;
   player_ids[0] = id_player;
@@ -167,10 +168,25 @@ void raspunde(void *arg)
   player_colors[1] = id_player;
   player_ids[1] = id_player;
   }
-  ind++;
   number_of_players++;
   int option = 0;
-
+  bool can_play;
+  if(number_of_players > 2){
+    can_play = false;
+    number_of_players --;
+    if (write (tdL.cl,&can_play,sizeof(bool)) <= 0)
+    {
+      perror ("[client]Eroare la write() spre client.\n");
+    }
+    pthread_exit(NULL);
+  }
+  else{
+    can_play = true;
+    if (write (tdL.cl,&can_play,sizeof(bool)) <= 0)
+    {
+      perror ("[client]Eroare la write() spre client.\n");
+    }
+  }
   //bool status = pthread_mutex_init(&lock, NULL);
 
   while(1){
@@ -178,11 +194,9 @@ void raspunde(void *arg)
     prepare_board_for_new_game();
     winning_condition = false;
     winner_message_condition = false;
-
+    mutare = 0;
+    draw_condition = false;
     strcpy(winner_message, "pierdut");
-
-    printf("%d", number_of_players);
-    fflush(stdout);
 
     while(number_of_players != 2);
 
@@ -207,6 +221,7 @@ void raspunde(void *arg)
 
         system("clear");
         print_board(board);
+        mutare++;
 
         //pthread_mutex_lock(&lock);
 
@@ -216,6 +231,10 @@ void raspunde(void *arg)
         printf("Joc terminat");
         fflush(stdout);
         pthread_mutex_unlock(&lock);
+      }else if (mutare == 42){
+        draw_condition = true;
+        strcpy(winner_message, "facut remiza");
+        winning_condition = true;
       }
 
       if (write (tdL.cl,&winning_condition,sizeof(bool)) <= 0)
@@ -230,16 +249,18 @@ void raspunde(void *arg)
           perror ("[client]Eroare la write() spre client.\n");
         }
 
-        if(winner_message_condition == false){
-          number_of_players = 0;  
-          winner_message_condition = true;
-          strcpy(winner_message, "castigat");
-          if(player_ids[0] == id_player){
-            scores[1]++;
-            }
-          else if(player_ids[1] == id_player){
-            scores[0]++;
-            }
+        if(draw_condition == false){
+          if(winner_message_condition == false){
+            number_of_players = 0;  
+            winner_message_condition = true;
+            strcpy(winner_message, "castigat");
+            if(player_ids[0] == id_player){
+              scores[1]++;
+              }
+            else if(player_ids[1] == id_player){
+              scores[0]++;
+              }
+          }
         }
 
         if (read (tdL.cl, &option, sizeof(int)) <= 0)
@@ -297,8 +318,10 @@ void raspunde(void *arg)
 
         }while(!valid_string_condition);
 
-        if(row = make_movement(col,id_player)){
-            
+        if((row = make_movement(col,id_player)) >= 0 ){
+
+          printf("%d", mutare);
+
           if (write (tdL.cl,&board,sizeof(board)) <= 0)
           {
             perror ("[client]Eroare la write() spre client.\n");
@@ -357,6 +380,11 @@ bool is_valid_movement(int col){
 }
 
 int make_movement(int col, int id_player){
+
+  if((board[0][col] == 0) && (board[1][col] != 0)){
+    board[0][col] = id_player;
+    return 0;
+  }
 
   /*cazul in care coloana nu este nici plina nici goala */
   int i = 1;  

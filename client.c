@@ -21,6 +21,7 @@
 #define MAX_COL 7
 #define ANSI_COLOR_RESET "\x1b[0m"
 #define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_ORANGE "\x1b[32m"
 #define ANSI_COLOR_GREEN "\x1b[32m"
 
 
@@ -79,10 +80,22 @@ int main (int argc, char *argv[])
   int turn;
   bool valid_string_condition;
   bool winning_condition = false;
-  char winner_message[10];
+  char winner_message[20];
   time_t finish;
   struct pollfd input_timer = { STDIN_FILENO, POLLIN|POLLPRI};
   int option;
+  bool can_play;
+
+  if (read (sd, &can_play, sizeof(bool)) <= 0)
+  {
+    perror ("[client]Eroare la read() de la server.\n");	
+  }
+
+  if(can_play == false){
+    printf("Numarul maxim de clienti deja atins. \n");
+    return 0;
+  }
+
   while(1){
 
     winning_condition = false;
@@ -103,6 +116,7 @@ int main (int argc, char *argv[])
     printf("Score: %d %d \n\n", scores[0], scores[1]);
     fflush(stdout);
     print_board(board);
+    printf("\n");
 
     while(!winning_condition){
 
@@ -119,11 +133,13 @@ int main (int argc, char *argv[])
         }
 
         system("clear");
-        printf("Ai ");
+        printf("Ati ");
         if(strcmp(winner_message,"castigat") == 0)
           printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET, winner_message);
-        else 
+        else if(strcmp(winner_message,"pierdut") == 0)
           printf(ANSI_COLOR_RED "%s" ANSI_COLOR_RESET, winner_message);
+        else 
+          printf(ANSI_COLOR_ORANGE "%s" ANSI_COLOR_RESET, winner_message);
         printf(".\n\n");
         printf("Foloseste una din comenzile: \n");
         printf("1) rematch\n");
@@ -166,8 +182,9 @@ int main (int argc, char *argv[])
 
         system("clear");
         printf("Score: %d %d \n\n", scores[0], scores[1]);
-        fflush(stdout);
         print_board(board);
+        printf("\n");
+        fflush(stdout);
 
         /* trimiterea mesajului ce contine mutarea la server */
         do{
@@ -176,6 +193,7 @@ int main (int argc, char *argv[])
           printf("Score: %d %d \n\n", scores[0], scores[1]);
           fflush(stdout);
           print_board(board);
+          printf("\n");
           printf("Introduceti numarul coloanei pe care doriti sa puneti piesa: \n");
           fflush(stdout);
 
@@ -213,6 +231,9 @@ int main (int argc, char *argv[])
         printf("Score: %d %d \n\n", scores[0], scores[1]);
         fflush(stdout);
         print_board(board);
+        printf("\n");
+        fflush(stdout);
+
       }
     }
   }
