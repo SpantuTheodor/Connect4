@@ -1,10 +1,6 @@
-/* servTCPConcTh2.c - Exemplu de server TCP concurent care deserveste clientii
-   prin crearea unui thread pentru fiecare client.
-   Asteapta un numar de la clienti si intoarce clientilor numarul incrementat.
-	Intoarce corect identificatorul din program al thread-ului.
-  
-   
+/* 
    Autor: Lenuta Alboaie  <adria@infoiasi.ro> (c)2009
+   Adaptat: Spantu Theodor-Ioan
 */
 
 #include <sys/types.h>
@@ -20,7 +16,7 @@
 #include <stdbool.h>
 
 /* portul folosit */
-#define PORT 2908
+#define PORT 3008
 #define MAX_ROW 6
 #define MAX_COL 7
 #define ANSI_COLOR_RESET "\x1b[0m"
@@ -42,11 +38,11 @@ int mutare;
 extern int errno;
 
 typedef struct thData{
-	int idThread; //id-ul thread-ului tinut in evidenta de acest program
-	int cl; //descriptorul intors de accept
+	int idThread; 
+	int cl; 
 }thData;
 
-static void *treat(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii */
+static void *treat(void *); 
 void raspunde(void *);
 void prepare_board_for_new_game();
 void print_board(int board[][MAX_COL]);
@@ -56,72 +52,56 @@ bool is_valid_movement(int col);
 
 int main ()
 {
-  struct sockaddr_in server;	// structura folosita de server
+  struct sockaddr_in server;	
   struct sockaddr_in from;	
-  int nr;		//mesajul primit de trimis la client 
-  int sd;		//descriptorul de socket 
+  int nr;	
+  int sd;		
   int pid;
-  pthread_t th[100];    //Identificatorii thread-urilor care se vor crea
+  pthread_t th[100];    
 	int thread_index=0;
   
-
-  /* crearea unui socket */
   if ((sd = socket (AF_INET, SOCK_STREAM, 0)) == -1)
     {
       perror ("[server]Eroare la socket().\n");
       return errno;
     }
-  /* utilizarea optiunii SO_REUSEADDR */
+
   int on=1;
   setsockopt(sd,SOL_SOCKET,SO_REUSEADDR,&on,sizeof(on));
   
-  /* pregatirea structurilor de date */
   bzero (&server, sizeof (server));
   bzero (&from, sizeof (from));
   
-  /* umplem structura folosita de server */
-  /* stabilirea familiei de socket-uri */
+
     server.sin_family = AF_INET;	
-  /* acceptam orice adresa */
     server.sin_addr.s_addr = htonl (INADDR_ANY);
-  /* utilizam un port utilizator */
     server.sin_port = htons (PORT);
   
-  /* atasam socketul */
   if (bind (sd, (struct sockaddr *) &server, sizeof (struct sockaddr)) == -1)
     {
       perror ("[server]Eroare la bind().\n");
       return errno;
     }
 
-  /* punem serverul sa asculte daca vin clienti sa se conecteze */
   if (listen (sd, 2) == -1)
     {
       perror ("[server]Eroare la listen().\n");
       return errno;
     }
-  /* servim in mod concurent clientii...folosind thread-uri */
   while (1)
     {
       int client;
-      thData * td; //parametru functia executata de thread     
+      thData * td;    
       int length = sizeof (from);
 
       printf ("[server]Asteptam la portul %d...\n",PORT);
       fflush (stdout);
 
-      // client= malloc(sizeof(int));
-      /* acceptam un client (stare blocanta pina la realizarea conexiunii) */
       if ( (client = accept (sd, (struct sockaddr *) &from, &length)) < 0)
 	{
 	  perror ("[server]Eroare la accept().\n");
 	  continue;
 	}
-	
-        /* s-a realizat conexiunea, se astepta mesajul */
-    
-	// int idThread; //id-ul threadului
-	// int cl; //descriptorul intors de accept
 
 	td=(struct thData*)malloc(sizeof(struct thData));	
 	td->idThread=thread_index++;
@@ -129,7 +109,7 @@ int main ()
 
 	pthread_create(&th[thread_index], NULL, &treat, td);	      
 				
-	}//while    
+	}    
 };				
 
 static void *treat(void * arg)
@@ -140,7 +120,6 @@ static void *treat(void * arg)
 		fflush (stdout);		 
 		pthread_detach(pthread_self());		
 		raspunde((struct thData*)arg);
-		/* am terminat cu acest client, inchidem conexiunea */
 		close ((intptr_t)arg);
 		return(NULL);	
   		
@@ -199,9 +178,6 @@ void raspunde(void *arg)
     strcpy(winner_message, "pierdut");
 
     while(number_of_players != 2);
-
-    fflush(stdout);
-    sleep(1);
 
     if (write (tdL.cl,&player_colors,sizeof(player_colors)) <= 0)
     {
@@ -273,7 +249,7 @@ void raspunde(void *arg)
           number_of_players ++;        
         }
         else if(option == 2){
-          //close (tdL.cl);
+          close (tdL.cl);
           if(player_ids[0] == id_player){
             player_ids[0] = 0;
             player_colors[0] = 0;
@@ -319,8 +295,6 @@ void raspunde(void *arg)
         }while(!valid_string_condition);
 
         if((row = make_movement(col,id_player)) >= 0 ){
-
-          printf("%d", mutare);
 
           if (write (tdL.cl,&board,sizeof(board)) <= 0)
           {
